@@ -11,4 +11,6 @@ update-alternatives --install /usr/bin/python python /usr/bin/python3.5 2
 python -m venv nmct-box
 nmct-box/bin/python -m pip install --upgrade pip setuptools wheel
 
+echo  "alias boxenv='source /home/pi/nmct-box/bin/activate'" >> /.bashrc
+
 
