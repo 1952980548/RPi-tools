@@ -11,13 +11,15 @@ sudo apt install -y libffi-dev libbz2-dev libssl-dev libncurses5-dev libncursesw
 
 echo "Downloading archive and extracting files"
 wget $URL &&
-tar -xf $FILE &&
+tar -xvf $FILE &&
 pushd $NAME 
 
 echo "Compiling... get some coffee :)"
 ./configure --enable-optimizations --prefix=/usr &&
-make -sj 4 &&
+make -j 4 &&
 sudo make altinstall 
+
+update-alternatives --install /usr/bin/python python /usr/bin/python3.6 3
 
 popd
 exit 0
