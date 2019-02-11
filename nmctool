@@ -118,6 +118,8 @@ usage(){
       new-venv [-s] <name>
         - make a new Python3 virtual environment in <name> 
           -s: inherit system-site-packages
+      update
+	- update this tool to the latest version
 
 EOF
 }
@@ -133,6 +135,7 @@ is_sourced || {
         timezone)      set_timezone "$@"            ;;
         new-venv)      mkvenv "$@"                  ;;
 	update)	       update "$@"		    ;;
-        *) usage 				    ;;
+	help)	       usage "$@"		    ;;
+        *) usage 1>&2  				    ;;
     esac
 }
