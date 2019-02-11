@@ -7,9 +7,10 @@ die(){ err "$@"; is_sourced || exit 1 && false; }
 
 
 set_keyboard(){
-    local kb="${1:?}";
-    sudo sed -ri "/XKBLAYOUT/ s/=.*$/=\"$kb\"/" /etc/default/keyboard;
-    sudo setupcon -v
+    local kb="${1:?Missing argument: <keyboard-layout>}";
+    #sudo sed -ri "/XKBLAYOUT/ s/=.*$/=\"$kb\"/" /etc/default/keyboard;
+    #sudo setupcon -v
+    sudo raspi-config nonint do_configure_keyboard ${kb}
 }
 declare -fx set_keyboard
 
