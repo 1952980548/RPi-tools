@@ -86,6 +86,17 @@ mkvenv(){
 }
 declare -fx mkvenv
 
+update() {
+    tmp="$(mktemp)"
+    if wget -qO "${tmp}" https://raw.githubusercontent.com/nmctseb/RPi-tools/master/nmctool; then
+        sudo install -v -m 755 "${tmp}" /usr/local/bin/nmctool
+    else
+	err "Update failed"
+	return 1
+    fi
+
+}
+
 usage(){
     cat <<-EOF 
     usage: $0 <command> [<args>]
