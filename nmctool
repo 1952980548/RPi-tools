@@ -132,6 +132,7 @@ is_sourced || {
         lazy-sudo)     nopasswd_sudo "$@"           ;;
         timezone)      set_timezone "$@"            ;;
         new-venv)      mkvenv "$@"                  ;;
-        *) usage;;
+	update)	       update "$@"		    ;;
+        *) usage 				    ;;
     esac
 }
