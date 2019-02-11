@@ -1,0 +1,124 @@
+is_sourced(){ [[ "$0" != "$BASH_SOURCE" ]]; }
+msg(){ echo -e "$@" 1>&2; }
+err(){ msg $'\033[00;31m'"ERROR: $@"$'\033[00m'; }
+die(){ err "$@"; is_sourced || exit 1 && false; }
+
+
+set_keyboard(){
+    local kb="${1:?}";
+    sudo sed -ri "/XKBLAYOUT/ s/=.*$/=\"$kb\"/" /etc/default/keyboard;
+    sudo setupcon -v
+}
+declare -fx set_keyboard
+
+nopasswd_sudo(){
+    local user="${1:-$SUDO_USER}"
+    [[ -n "$user" ]] || { die "Usage: $0 USERNAME" || return 1; } 
+    id "$user" &>/dev/null || { die "User '$user' does not exist!" || return 1; }
+    msg "Adding NOPASSWD:ALL for user '$user' to sudoers file"
+    echo "$user ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/010_$user-nopasswd 
+}
+declare -fx nopasswd_sudo
+
+set_hostname(){
+    local newname="${1:?Missing argument: <newname>}"
+    local oldname="$(hostname)"
+    [[ -n "$newname" ]] || die "No hostname specified" || return -1
+    echo "Changing hostname from '$oldname' to '$newname'"
+    sudo hostname "$1" && { 
+        sudo sed -i "s/$oldname/$newname/g" /etc/hosts
+        hostname | sudo tee /etc/hostname >/dev/null
+        [[ -f /var/lib/cloud/seed/nocloud-net/user-data ]] && 
+            sudo sed -ri "s/(hostname: ).*\$/\1$newname/" \
+                /var/lib/cloud/seed/nocloud-net/user-data
+        exec $SHELL
+    }
+}
+declare -fx set_hostname
+
+set_prompt_colors(){
+    sed -ri 's/^#?(force_color_prompt=).*/\1yes/g' $target{/etc/skel,/root,/home/*}/.bashrc &> /dev/null
+    [[ ! -f  $target/root/.bashrc ]] && cp $target{/etc/skel/.bashrc,/root/}
+    sed -i "s/PS1='/PS1='\\\[\\\033[01;33m\\\]/g; s/01;32m/01;31m/g" $target/root/.bashrc
+}
+
+set_timezone(){
+    local tz="${1:-Europe/Brussels}"
+    sudo timedatectl set-timezone "$tz"
+}
+declare -fx set_timezone
+
+add_default_groups(){
+    local user="$1"
+    sudo usermod -aG adm,dialout,cdrom,audio,users,sudo,video,games,plugdev,input,gpio,spi,i2c,netdev "$user"
+}
+declare -fx add_default_groups
+
+add_user(){
+    local user="${1:?Missing argument: <username>}"
+    [[ -n "$user" ]] || { die "Usage: $0 USERNAME" || return 1; } 
+    id "$user" &>/dev/null && { die "User '$user' exists!" || return 1; }
+    sudo adduser "$user" --gecos "" --disabled-password 
+    add_default_groups "$user"
+    nopasswd_sudo "$user"
+    sudo passwd "$user"
+}
+declare -fx add_user
+
+mkvenv(){
+    local opts="" dir="$PWD"
+    while [[ -n "$1" ]]; do
+        case "$1" in
+            -s) opts+="--system-site-packages" ;;
+            -d) dir="$2"; shift ;;
+            *) local name="$1" ;;
+        esac
+        shift
+    done
+    msg "Creating new environment '${name:=venv}' in ${dir}..."
+    pushd "$dir" >/dev/null
+    python3 -m venv "$env" 
+    "$env/bin/python3" -m pip install --upgrade pip setuptools wheel 
+    source "$env/bin/activate"
+    popd >/dev/null
+}
+declare -fx mkvenv
+
+usage(){
+    cat <<-EOF 
+    usage: $0 <command> [<args>]
+
+    Available commands:
+      add-user <name>
+        - add new user account
+      fix-groups [<user>]    
+        - fix group memberships (gpio, i2c, ...) for current or <specified user> 
+      hostname <newname>
+        - change system hostname to <newname>
+      keyboard <layout>
+        - change console keyboard layout. 
+          <layout> is a 2 letter code, e.g. us, gb, be, nl, ... 
+      lazy-sudo[<user>]
+        - add rule to enable sudo without password   
+      timezone <tz>
+        - set timezone to <tz>, e.g. Europe/Brussels
+      new-venv [-s] <name>
+        - make a new Python3 virtual environment in <name> 
+          -s: inherit system-site-packages
+
+EOF
+}
+
+is_sourced || {
+    op="$1"; shift
+    case "$op" in 
+        add-user)      add_user "$@"                ;;
+        fix-groups)    add_default_groups "$@"      ;;
+        hostname)      set_hostname "$@"            ;;
+        keyboard)      set_keyboard "$@"            ;;
+        lazy-sudo)     nopasswd_sudo "$@"           ;;
+        timezone)      set_timezone "$@"            ;;
+        new-venv)      mkvenv "$@"                  ;;
+        *) usage;;
+    esac
+}
